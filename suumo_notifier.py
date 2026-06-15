@@ -169,6 +169,9 @@ def parse_properties(html):
             rent = get_text(room.select_one(".cassetteitem_other-emphasis")) \
                 or get_text(room.select_one(".cassetteitem_price--rent"))
 
+            # 管理費・共益費（例: 4000円）。無い場合は空になる。
+            admin = get_text(room.select_one(".cassetteitem_price--administration"))
+
             # 間取り（例: 1LDK）
             madori = get_text(room.select_one(".cassetteitem_madori"))
 
@@ -211,6 +214,7 @@ def parse_properties(html):
                 "key": key,                       # 新着判定に使う識別子
                 "name": name,                     # 物件名
                 "rent": rent,                     # 家賃
+                "admin": admin,                   # 管理費・共益費
                 "madori": madori,                 # 間取り
                 "menseki": menseki,               # 面積
                 "floor": floor,                   # 階（所在階）
@@ -289,8 +293,15 @@ def format_items(lines, items):
         else:
             floor_text = item["floor"]
 
+        # 家賃の表示。管理費・共益費があれば「9.4万円（管理費・共益費 4000円）」と添える。
+        admin = item.get("admin", "")
+        if admin and admin != "-":
+            rent_text = f"{item['rent']}（管理費・共益費 {admin}）"
+        else:
+            rent_text = item["rent"]
+
         lines.append(f"■ {i}. {item['name']}")
-        lines.append(f"   家賃　: {item['rent']}")
+        lines.append(f"   家賃　: {rent_text}")
         lines.append(f"   間取り: {item['madori']}")
         lines.append(f"   面積　: {item['menseki']}")
         lines.append(f"   階　　: {floor_text}")
