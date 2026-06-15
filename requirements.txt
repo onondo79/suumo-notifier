@@ -1,0 +1,4 @@
+# Required libraries (install with: py -m pip install -r requirements.txt)
+requests          # fetch web pages
+beautifulsoup4    # parse HTML
+python-dotenv     # read .env file (for local testing)

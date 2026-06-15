@@ -1,0 +1,67 @@
+# GitHub Actions の設定ファイルです。
+# GitHub上で、決まった時刻に自動でプログラムを動かしてくれます。
+
+name: SUUMO 新着通知   # この自動実行の名前（GitHubの画面に表示されます）
+
+on:
+  # ① 時刻で自動実行する設定（cron）。
+  #    GitHub Actions は世界標準時（UTC）で動くため、日本時間(JST)から9時間引いた
+  #    時刻を書きます。  JST = UTC + 9 なので「JSTの時刻 - 9時間」がUTCです。
+  #      JST  9:03 → UTC  0:03
+  #      JST 15:03 → UTC  6:03
+  #      JST 18:03 → UTC  9:03
+  #      JST 22:03 → UTC 13:03
+  #    cronの書き方は「分 時 日 月 曜日」。分=3、時=0,6,9,13 という意味です。
+  schedule:
+    - cron: "3 0,6,9,13 * * *"
+
+  # ② 手動でも実行できるようにしておく（GitHubのボタンから動かせる）
+  workflow_dispatch:
+
+# このワークフローに、リポジトリへ書き込む権限を与える。
+# （data フォルダの記録ファイルを更新して保存し直すために必要）
+permissions:
+  contents: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest   # GitHubが用意するLinuxパソコンの上で動かす
+
+    steps:
+      # 1) リポジトリの中身を、実行用パソコンに取ってくる
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      # 2) Python を使えるようにする
+      - name: Python を準備
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 3) 必要なライブラリをインストールする
+      - name: ライブラリをインストール
+        run: pip install -r requirements.txt
+
+      # 4) プログラムを実行する。
+      #    GMAIL_ADDRESS と GMAIL_APP_PASSWORD は GitHub Secrets から渡す。
+      #    （secrets.〇〇 は、あとで設定する秘密情報のこと）
+      - name: 通知プログラムを実行
+        env:
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python suumo_notifier.py
+
+      # 5) 記録ファイル（data/）に変化があれば、リポジトリに保存（コミット）し直す。
+      #    こうしないと次回また全件が新着になってしまうので、ここが重要です。
+      - name: 記録ファイルを保存
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          # 変化が無ければコミットしない（エラーで止まらないようにする）
+          if git diff --staged --quiet; then
+            echo "記録に変化はありませんでした。"
+          else
+            git commit -m "Update SUUMO records [skip ci]"
+            git push
+          fi
