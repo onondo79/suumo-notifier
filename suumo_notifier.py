@@ -23,6 +23,7 @@ SUUMO 新着賃貸物件 通知ツール
 #    import = 「他の人が作った便利な機能を持ってくる」という意味
 # ──────────────────────────────────────────────────────────────
 import os            # パソコンのファイルや環境変数（あとで説明）を扱う
+from datetime import datetime, timedelta, timezone  # 日時（JST）を扱う
 import re            # 文字列の中から欲しい部分を取り出す（正規表現）
 import json          # データをファイルに保存・読み込みするための形式
 import time          # 一定時間「待つ（sleep）」ために使う
@@ -369,13 +370,17 @@ def process_area(area):
     else:
         new_items = [it for it in items if it["key"] not in previous_keys]
 
-    # (4) メールの件名を作る
+    # (4) メールの件名を作る。
+    #     件名の末尾に日本時間の日時を付けて、毎回ユニークにする。
+    #     （Gmailで同じ件名がスレッドにまとめられて埋もれるのを防ぐため）
+    jst = timezone(timedelta(hours=9))                  # 日本時間（UTC+9）
+    now_str = datetime.now(jst).strftime("%m/%d %H:%M")  # 例: 06/16 18:03
     if is_first_run:
-        subject = f"【{name}】初回登録（{len(items)}件を記録）"
+        subject = f"【{name}】初回登録（{len(items)}件を記録）{now_str}"
     elif new_items:
-        subject = f"【{name}】新着{len(new_items)}件"
+        subject = f"【{name}】新着{len(new_items)}件 {now_str}"
     else:
-        subject = f"【{name}】新着なし"
+        subject = f"【{name}】新着なし {now_str}"
 
     # (5) 本文を作って送信（毎回かならず1通送る）
     body = build_body(name, new_items, is_first_run, items)
